@@ -45,15 +45,32 @@ typedef struct _subspace {
     point *points;
 } subspace;
 
+typedef struct _node {
+    void *data;
+    struct _node *prev;
+    struct _node *next;
+} node;
+
+typedef struct _list {
+    node begin;
+    node end;
+} list;
+
 subspace *subspace_init(uint64_t, uint64_t, uint64_t, 
         uint64_t, uint64_t, uint64_t);
 void subspace_free(subspace *);
 size_t volume(subspace *s);
-double eval_int(quadric *, vector *);
-double eval_ext(quadric *, vector *);
-int is_surface(quadric *, vector *);
-void print_vector(vector *v);
-void print_subspace(subspace *s);
-void depth_first_fill(subspace *, quadric *, vector *);
-void breadth_first_fill(subspace *, quadric *, vector *);
+double eval_int(const quadric *, const vector *);
+double eval_ext(const quadric *, const vector *);
+int is_surface(const quadric *, const vector *);
+void print_vector(const vector *v);
+void print_subspace(const subspace *s);
+void depth_first_fill(subspace *, const quadric *, const vector *);
+void breadth_first_fill(subspace *, const quadric *, const vector *);
+list *new_list();
+void *pop(list *);
+void *peek(list *);
+void *push_back(list *, void *);
+void list_destroy(list *);
+void print_list(list *, void (*)(void *));
 #endif

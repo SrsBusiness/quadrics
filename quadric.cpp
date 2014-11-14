@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <boost/circular_buffer.hpp>
 
@@ -16,9 +15,9 @@
 
 /* ax^2 + by^2 + cz^2 + 2fyz + 2gzx + 2hxy + 2px + 2qy + 2rz + d = 0. */
 
-double (*eval[])(quadric *, vector *) = {eval_ext, eval_int};
+double (*eval[])(const quadric *, const vector *) = {eval_ext, eval_int};
 
-double eval_int(quadric *q, vector *v) {
+double eval_int(const quadric *q, const vector *v) {
     double result = q->a * v->x * v->x + 
         q->b * v->y * v->y + 
         q->c * v->z * v->z + 
@@ -33,7 +32,7 @@ double eval_int(quadric *q, vector *v) {
     return result == 0.0 ? -result : result;
 }
 
-double eval_ext(quadric *q, vector *v) {
+double eval_ext(const quadric *q, const vector *v) {
     double result = q->a * v->x * v->x + 
         q->b * v->y * v->y + 
         q->c * v->z * v->z + 
@@ -50,13 +49,13 @@ double eval_ext(quadric *q, vector *v) {
 
 /* if eval() of all neighboring points are of all the same sign, then
  * v cannot be on the surface. Otherwise, it may be*/
-int is_surface(quadric *q, vector *v) {
+int is_surface(const quadric *q, const vector *v) {
     double val = eval_ext(q, v);
     /* short circuit */
     if (val == 0.0)
         return 1;
     uint64_t inside = (0x8000000000000000 & *(uint64_t *)&val) >> 63;
-    double (*eval_func)(quadric *, vector *) = eval[inside];
+    double (*eval_func)(const quadric *, const vector *) = eval[inside];
     vector tmp;
     int i = 1;
     uint64_t sign1, sign2;
@@ -114,7 +113,7 @@ void subspace_free(subspace *s) {
     free(s);
 }
 
-void depth_first_fill(subspace *s, quadric *q, vector *v) {
+void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
     /* if out of bounding volume */
     if (v->x < s->x_min || v->x >= s->x_max ||
             v->y < s->y_min || v->y >= s->y_max ||
@@ -130,7 +129,7 @@ void depth_first_fill(subspace *s, quadric *q, vector *v) {
     s->points[index].surface = is_surface(q, v);
     int i;
     vector tmp;
-    for (i = 0; i <= 4; i <<=1) {
+    for (i = 1; i <= 4; i <<=1) {
         tmp.x = v->x + (i & 0x1);
         tmp.y = v->y + ((i & 0x2) >> 1);
         tmp.z = v->z + ((i & 0x4) >> 2);
@@ -142,7 +141,7 @@ void depth_first_fill(subspace *s, quadric *q, vector *v) {
     }
 }
 
-void breadth_first_fill(subspace *s, quadric *q, vector *v) {
+void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
     boost::circular_buffer<vector *> queue = 
         boost::circular_buffer<vector *>(volume(s));
 
@@ -154,16 +153,16 @@ void breadth_first_fill(subspace *s, quadric *q, vector *v) {
     while (!queue.empty()) {
         current = queue.front();
         queue.pop_front();
-    
+        uint64_t index;
         if (current->x < s->x_min || current->x >= s->x_max ||
             current->y < s->y_min || current->y >= s->y_max ||
             current->z < s->z_min || current->z >= s->z_max)
-            continue;
+            goto cleanup;
 
-        uint64_t index = _index(s, current->x, current->y, current->z);
+        index = _index(s, current->x, current->y, current->z);
         if(sem_trywait(&s->points[index].sema) == -1 &&
             errno == EAGAIN)
-            continue;
+            goto cleanup;
         s->points[index].surface = is_surface(q, current);
         
         for (i = 1; i <= 4; i <<=1) {
@@ -178,16 +177,74 @@ void breadth_first_fill(subspace *s, quadric *q, vector *v) {
             tmp->z = current->z - ((i & 0x4) >> 2);
             queue.push_back(tmp);
         }
+        cleanup:
         free(current);
     }
     return;
 }
 
-void print_subspace(subspace *s) {
+void print_subspace(const subspace *s) {
     printf("x: %lld to %lld, y: %lld to %lld, z: %lld to %lld\n",
             s->x_min, s->x_max, s->y_min, s->y_max, s->z_min, s->z_max);
 }
 
-void print_vector(vector *v) {
+void print_vector(const vector *v) {
     printf("{%lld, %lld, %lld}\n", v->x, v->y, v->z);
+}
+
+list *new_list() {
+    list *l = (list *)malloc(sizeof(list));
+    /* begin initially points to end and vice versa */
+    l->begin.next = &l->end;
+    l->end.prev = &l->begin;
+}
+
+void *pop(list *l) {
+    /* if list is empty */
+    if(l->begin.next == &l->end)
+        return NULL;
+    void *result = l->begin.next->data;
+    node *remove = l->begin.next;
+    l->begin.next = l->begin.next->next;
+    l->begin.next->prev = &l->begin;
+    free(remove);
+    return result;
+}
+
+void *peek(list *l) {
+    /* if list is empty */
+    if(l->begin.next == &l->end)
+        return NULL;
+    return l->begin.next->data;
+}
+
+void *push_back(list *l, void *data) {
+    node *last = (node *)malloc(sizeof(node));  
+    last->data = data;
+    last->prev = l->end.prev;
+    last->next = &l->end;
+    l->end.prev->next = last;
+    l->end.prev = last;
+}
+
+void list_destroy(list *l) {
+    if(!l)
+        return;
+    node *current = l->begin.next, *next;
+    while(current != &l->end) {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+    free(l);
+}
+
+void print_list(list *l, void (*print_elem)(void *)) {
+    if(!l)
+        return;
+    node *current = l->begin.next;
+    while(current != &l->end) {
+        print_elem(current->data);
+        current = current->next;
+    }
 }

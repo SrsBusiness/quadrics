@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <stdio.h>
-#include <boost/circular_buffer.hpp>
+//#include <boost/circular_buffer.hpp>
 
 #define EPSILON 0.5
 /* Quadratic surfaces are also called quadrics, and there are 17 
@@ -141,18 +141,23 @@ void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
     }
 }
 
-void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
-    boost::circular_buffer<vector *> queue = 
-        boost::circular_buffer<vector *>(volume(s));
+void print_func(void *data) {
+    printf("%p\n", data); 
+}
 
+void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
+    //boost::circular_buffer<vector *> queue = 
+    //    boost::circular_buffer<vector *>(volume(s));
+    list *queue = new_list();
     vector *tmp, *current = (vector *)malloc(sizeof(vector));
     current->x = v->x; current->y = v->y; current->z = v->z; 
-    queue.push_back(current);
-
+    //queue.push_back(current);
+    push_back(queue, current);
     int i;
-    while (!queue.empty()) {
-        current = queue.front();
-        queue.pop_front();
+    while (!empty(queue)) {
+        //current = queue.front();
+        //queue.pop_front();
+        current = (vector *)pop(queue);
         uint64_t index;
         if (current->x < s->x_min || current->x >= s->x_max ||
             current->y < s->y_min || current->y >= s->y_max ||
@@ -170,12 +175,14 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
             tmp->x = current->x + (i & 0x1);
             tmp->y = current->y + ((i & 0x2) >> 1);
             tmp->z = current->z + ((i & 0x4) >> 2);
-            queue.push_back(tmp);
+            //queue.push_back(tmp);
+            push_back(queue, tmp);
             tmp = (vector *)malloc(sizeof(vector));
             tmp->x = current->x - (i & 0x1);
             tmp->y = current->y - ((i & 0x2) >> 1);
             tmp->z = current->z - ((i & 0x4) >> 2);
-            queue.push_back(tmp);
+            //queue.push_back(tmp);
+            push_back(queue, tmp);
         }
         cleanup:
         free(current);
@@ -197,6 +204,7 @@ list *new_list() {
     /* begin initially points to end and vice versa */
     l->begin.next = &l->end;
     l->end.prev = &l->begin;
+    return l;
 }
 
 void *pop(list *l) {
@@ -247,4 +255,8 @@ void print_list(list *l, void (*print_elem)(void *)) {
         print_elem(current->data);
         current = current->next;
     }
+}
+
+int empty(list *l) {
+    return l->begin.next == &l->end;
 }

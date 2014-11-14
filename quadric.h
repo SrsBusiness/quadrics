@@ -73,4 +73,5 @@ void *peek(list *);
 void *push_back(list *, void *);
 void list_destroy(list *);
 void print_list(list *, void (*)(void *));
+int empty(list *);
 #endif

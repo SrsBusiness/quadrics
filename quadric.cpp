@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <list>
+#include <float.h>
+#include <math.h>
 //#include <boost/circular_buffer.hpp>
 
 #define EPSILON 0.5
@@ -16,7 +18,8 @@
 
 /* ax^2 + by^2 + cz^2 + 2fyz + 2gzx + 2hxy + 2px + 2qy + 2rz + d = 0. */
 
-double (*eval[])(const quadric *, const vector *) = {eval_ext, eval_int};
+double (*eval_funcs[])(const quadric *, const vector *) = {eval_ext, eval_int};
+double (*eval)(const quadric *, const vector *) = eval_ext;
 
 double eval_int(const quadric *q, const vector *v) {
     double result = q->a * v->x * v->x + 
@@ -56,7 +59,7 @@ int is_surface(const quadric *q, const vector *v) {
     if (val == 0.0)
         return 1;
     uint64_t inside = (0x8000000000000000 & *(uint64_t *)&val) >> 63;
-    double (*eval_func)(const quadric *, const vector *) = eval[inside];
+    double (*eval_func)(const quadric *, const vector *) = eval_funcs[inside];
     vector tmp;
     int i = 1;
     uint64_t sign1, sign2;
@@ -114,6 +117,52 @@ void subspace_free(subspace *s) {
     free(s);
 }
 
+/* Given a starting point v, traces a path until it arrives at a surface
+ * point. Returns 1 if successful, 0 otherwise. Surface is modified with the
+ * coordinates of the surface point. If 0 is returned, the new coordinates in 
+ * surface are undefined
+ */
+int find_surface(quadric *q, const vector *v, vector *surface) {
+    vector tmp, closest;
+    double dist, shortest_dist;
+    int i;
+    shortest_dist = DBL_MAX;
+    int progress = 1;
+    *surface = *v;
+    while(!is_surface(q, surface) && progress) {
+        progress = 0;
+        printf("shortest: %lf\n", shortest_dist);
+        for (i = 1; i <= 4; i <<=1) {
+            tmp.x = surface ->x + (i & 0x1);
+            tmp.y = surface ->y + ((i & 0x2) >> 1);
+            tmp.z = surface ->z + ((i & 0x4) >> 2);
+            if ((dist = fabs(eval_ext(q, &tmp))) < shortest_dist) {
+                shortest_dist = dist;
+                closest = tmp;
+                progress = 1;
+            }
+            printf("dist: %lf\n", dist);
+
+            tmp.x = surface->x - (i & 0x1);
+            tmp.y = surface->y - ((i & 0x2) >> 1);
+            tmp.z = surface->z - ((i & 0x4) >> 2);
+            if ((dist = fabs(eval_ext(q, &tmp))) < shortest_dist) {
+                shortest_dist = dist;
+                closest = tmp;
+                progress = 1;
+            }
+            printf("dist: %lf\n", dist);
+            
+        }
+        *surface = closest;
+        print_vector(surface);
+    }
+    return is_surface(q, surface);
+}
+
+/* precondition: v is surface point
+ * Depth first trace of all surface points
+ * */
 void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
     /* if out of bounding volume */
     if (v->x < s->x_min || v->x >= s->x_max ||
@@ -123,22 +172,27 @@ void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
 
     uint64_t index = _index(s, v->x, v->y, v->z);
     /* if already visited */
-    if(sem_trywait(&s->points[index].sema) == -1 &&
+    if (sem_trywait(&s->points[index].sema) == -1 &&
             errno == EAGAIN)
         return;
-    
-    s->points[index].surface = is_surface(q, v);
-    int i;
+   
+    /* if not a surface point */
+    if (!(s->points[index].surface = is_surface(q, v)))
+        return;
+
     vector tmp;
-    for (i = 1; i <= 4; i <<=1) {
-        tmp.x = v->x + (i & 0x1);
-        tmp.y = v->y + ((i & 0x2) >> 1);
-        tmp.z = v->z + ((i & 0x4) >> 2);
-        depth_first_fill(s, q, &tmp);
-        tmp.x = v->x - (i & 0x1);
-        tmp.y = v->y - ((i & 0x2) >> 1);
-        tmp.z = v->z - ((i & 0x4) >> 2);
-        depth_first_fill(s, q, &tmp);
+    int i, j, k;
+    for (i = -1; i <= 1; i++) {
+        for (j = -1; j <= 1; j++) {
+            for (k = -1; k <= 1; k++) {
+                if (!i && !j && !k)
+                    continue;
+                tmp.x = v->x + i;
+                tmp.y = v->y + j;
+                tmp.z = v->z + k;
+                depth_first_fill(s, q, &tmp);
+            }
+        }
     }
 }
 
@@ -159,7 +213,7 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
     queue.push_back(current);
     //push_back(queue, current);
     //
-    int i;
+    int i, j, k;
     while (!queue.empty()) {
         current = queue.front();
         queue.pop_front();
@@ -174,21 +228,38 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
         if(sem_trywait(&s->points[index].sema) == -1 &&
             errno == EAGAIN)
             goto cleanup;
-        s->points[index].surface = is_surface(q, current);
-        
-        for (i = 1; i <= 4; i <<=1) {
-            tmp = (vector *)malloc(sizeof(vector));
-            tmp->x = current->x + (i & 0x1);
-            tmp->y = current->y + ((i & 0x2) >> 1);
-            tmp->z = current->z + ((i & 0x4) >> 2);
-            queue.push_back(tmp);
-            //push_back(queue, tmp);
-            tmp = (vector *)malloc(sizeof(vector));
-            tmp->x = current->x - (i & 0x1);
-            tmp->y = current->y - ((i & 0x2) >> 1);
-            tmp->z = current->z - ((i & 0x4) >> 2);
-            queue.push_back(tmp);
-            //push_back(queue, tmp);
+
+        /* If point is not on surface, do not visit */
+        if (!(s->points[index].surface = is_surface(q, current)))
+            goto cleanup;
+
+        //for (i = 1; i <= 4; i <<=1) {
+        //    tmp = (vector *)malloc(sizeof(vector));
+        //    tmp->x = current->x + (i & 0x1);
+        //    tmp->y = current->y + ((i & 0x2) >> 1);
+        //    tmp->z = current->z + ((i & 0x4) >> 2);
+        //    queue.push_back(tmp);
+        //    //push_back(queue, tmp);
+        //    tmp = (vector *)malloc(sizeof(vector));
+        //    tmp->x = current->x - (i & 0x1);
+        //    tmp->y = current->y - ((i & 0x2) >> 1);
+        //    tmp->z = current->z - ((i & 0x4) >> 2);
+        //    queue.push_back(tmp);
+        //    //push_back(queue, tmp);
+        //}
+        //
+        for (i = -1; i <= 1; i++) {
+            for (j = -1; j <= 1; j++) {
+                for (k = -1; k <= 1; k++) {
+                    if (!i && !j && !k)
+                        continue;
+                    tmp = (vector *)malloc(sizeof(vector));
+                    tmp->x = current->x + i;
+                    tmp->y = current->y + j;
+                    tmp->z = current->z + k;
+                    queue.push_back(tmp);
+                }
+            }
         }
         cleanup:
         free(current);

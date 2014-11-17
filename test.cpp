@@ -4,17 +4,31 @@
 #include <time.h>
 #include "minicurses.h"
 #include <pthread.h>
+#include <assert.h>
 
 void display_subspace(subspace *);
 
 void single_thread_benchmark(int64_t);
 void multi_thread_benchmark(int64_t, int);
 void list_test();
+void find_surface_test(int64_t);
 
 int main(int argc, char **argv) {
-    multi_thread_benchmark(100, 32);
+    multi_thread_benchmark(19, 1);
     //single_thread_benchmark(19);
     //list_test();
+    //find_surface_test(20);
+}
+
+void find_surface_test(int64_t radius) {
+    subspace *s = subspace_init(-radius - 1, -radius - 1, 0, radius + 2,
+            radius + 2, 1);
+    quadric q = {1, 1, 0, 0, 0, 0, 0, 0, 0, -radius * radius};
+    vector v = {0, 0, 0};
+    vector surface;
+    assert(find_surface(&q, &v, &surface)); 
+    breadth_first_fill(s, &q, &surface);
+    display_subspace(s);
 }
 
 void print_elem(void *elem) {
@@ -51,12 +65,22 @@ typedef struct _builder_args {
 
 void *builder_thread(void *args) {
     builder_args *bargs = (builder_args *)args;
-    vector v;
-    v.x = _x(bargs->s, bargs->index);
-    v.y = _y(bargs->s, bargs->index);
-    v.z = _z(bargs->s, bargs->index);
-    //print_vector(&v);
-    bargs->func(bargs->s, bargs->q, &v); 
+    vector v, surface;
+    //v.x = _x(bargs->s, bargs->index);
+    //v.y = _y(bargs->s, bargs->index);
+    //v.z = _z(bargs->s, bargs->index);
+    v.x = -10;
+    v.y = 12;
+    v.z = 0;
+    int success = find_surface(bargs->q, &v, &surface);
+    if(!success) {
+        //print_vector(&v);
+        //printf("%lf\n", eval_ext(bargs->q, &v));
+        //print_vector(&surface);
+        //printf("%lf\n", eval_ext(bargs->q, &surface));
+        exit(1);
+    }
+    bargs->func(bargs->s, bargs->q, &surface); 
 }
 
 void multi_thread_benchmark(int64_t radius, int num_threads) {
@@ -70,7 +94,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
     int64_t elapsed;
 
     uint64_t i, j;
-    int trials = 100;
+    int trials = 1;
     subspace *s;
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (i = 0; i < trials; i++) {
@@ -86,6 +110,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         }
         for (j = 0; j < num_threads; j++)
             pthread_join(threads[j], NULL);
+        display_subspace(s);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
@@ -109,6 +134,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         }
         for (j = 0; j < num_threads; j++)
             pthread_join(threads[j], NULL);
+        display_subspace(s);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);

@@ -65,6 +65,7 @@ double eval_ext(const quadric *, const vector *);
 int is_surface(const quadric *, const vector *);
 void print_vector(const vector *v);
 void print_subspace(const subspace *s);
+int find_surface(quadric *q, const vector *, vector *);
 void depth_first_fill(subspace *, const quadric *, const vector *);
 void breadth_first_fill(subspace *, const quadric *, const vector *);
 list *new_list();
@@ -74,4 +75,7 @@ void *push_back(list *, void *);
 void list_destroy(list *);
 void print_list(list *, void (*)(void *));
 int empty(list *);
+
+
+double eval_ext(const quadric *, const vector *);
 #endif

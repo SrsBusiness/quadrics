@@ -220,9 +220,9 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
         /* If point is not on surface, do not visit */
         if (!(s->points[index].surface = is_surface(q, current)))
             goto cleanup;
-        else {
-            surface_points++;
-        }
+        //else {
+        //    surface_points++;
+        //}
         for (i = -1; i <= 1; i++) {
             for (j = -1; j <= 1; j++) {
                 for (k = -1; k <= 1; k++) {

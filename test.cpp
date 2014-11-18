@@ -95,7 +95,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         }
         for (j = 0; j < num_threads; j++)
             pthread_join(threads[j], NULL);
-        //display_subspace(s);
+        display_subspace(s);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);

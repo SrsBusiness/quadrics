@@ -81,8 +81,8 @@ int is_surface(const quadric *q, const vector *v) {
     return 0;
 }
 
-subspace *subspace_init(uint64_t x_min, uint64_t y_min, 
-        uint64_t z_min, uint64_t x_max, uint64_t y_max, uint64_t z_max) {
+subspace *subspace_init(int64_t x_min, int64_t y_min, 
+        int64_t z_min, int64_t x_max, int64_t y_max, int64_t z_max) {
     subspace *s = (subspace *)malloc(sizeof(subspace));
     s->x_min = x_min;
     s->y_min = y_min;

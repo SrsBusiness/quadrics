@@ -59,8 +59,8 @@ typedef struct _list {
     node end;
 } list;
 
-subspace *subspace_init(uint64_t, uint64_t, uint64_t, 
-        uint64_t, uint64_t, uint64_t);
+subspace *subspace_init(int64_t, int64_t, int64_t, 
+        int64_t, int64_t, int64_t);
 void subspace_free(subspace *);
 size_t volume(subspace *s);
 double eval_int(const quadric *, const vector *);

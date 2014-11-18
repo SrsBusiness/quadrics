@@ -91,6 +91,7 @@ subspace *subspace_init(uint64_t x_min, uint64_t y_min,
     s->y_max = y_max;
     s->z_max = z_max;
     size_t space_size = (x_max - x_min) * (y_max - y_min) * (z_max - z_min);
+    sem_init(&s->points_plotted, 0, 0);
     s->points = (point *)calloc(space_size, sizeof(point));
     size_t i;
     for (i = 0; i < space_size; i++) {
@@ -175,6 +176,7 @@ void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
     if (!(s->points[index].surface = is_surface(q, v)))
         return;
 
+    touch(s);
     vector tmp;
     int i, j, k;
     for (i = -1; i <= 1; i++) {
@@ -220,9 +222,9 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
         /* If point is not on surface, do not visit */
         if (!(s->points[index].surface = is_surface(q, current)))
             goto cleanup;
-        //else {
-        //    surface_points++;
-        //}
+        else {
+            touch(s); 
+        }
         for (i = -1; i <= 1; i++) {
             for (j = -1; j <= 1; j++) {
                 for (k = -1; k <= 1; k++) {
@@ -239,7 +241,6 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
         cleanup:
         free(current);
     }
-    printf("%llu points plotted\n", surface_points);
     return;
 }
 

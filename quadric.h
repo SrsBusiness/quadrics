@@ -25,6 +25,8 @@
 #define _z(s, index) ((index) % (((s)->y_max - (s)->y_min) * \
         ((s)->z_max - (s)->z_min)) % ((s)->z_max - (s)->z_min) + (s)->z_min)
 
+#define touch(s) (sem_post(&(s)->points_plotted))
+
 
 typedef struct _quadric {
     double a, b, c, d, e, f, g, h, i, j;
@@ -42,6 +44,7 @@ typedef struct _point {
 
 typedef struct _subspace {
     int64_t x_min, y_min, z_min, x_max, y_max, z_max; 
+    sem_t points_plotted;
     point *points;
 } subspace;
 

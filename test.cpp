@@ -51,20 +51,10 @@ typedef struct _builder_args {
 void *builder_thread(void *args) {
     builder_args *bargs = (builder_args *)args;
     vector v, surface;
-    //v.x = _x(bargs->s, bargs->index);
-    //v.y = _y(bargs->s, bargs->index);
-    //v.z = _z(bargs->s, bargs->index);
-    v.x = -10;
-    v.y = 12;
-    v.z = 0;
-    int success = find_surface(bargs->q, &v, &surface);
-    if(!success) {
-        //print_vector(&v);
-        //printf("%lf\n", eval_ext(bargs->q, &v));
-        //print_vector(&surface);
-        //printf("%lf\n", eval_ext(bargs->q, &surface));
-        exit(1);
-    }
+    v.x = _x(bargs->s, bargs->index);
+    v.y = _y(bargs->s, bargs->index);
+    v.z = _z(bargs->s, bargs->index);
+    assert(find_surface(bargs->q, &v, &surface));
     bargs->func(bargs->s, bargs->q, &surface); 
 }
 
@@ -95,7 +85,10 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         }
         for (j = 0; j < num_threads; j++)
             pthread_join(threads[j], NULL);
-        display_subspace(s);
+        //display_subspace(s);
+        int points_plotted;
+        sem_getvalue(&s->points_plotted, &points_plotted);
+        printf("%d points plotted\n", points_plotted);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
@@ -120,6 +113,9 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         for (j = 0; j < num_threads; j++)
             pthread_join(threads[j], NULL);
         //display_subspace(s);
+        int points_plotted;
+        sem_getvalue(&s->points_plotted, &points_plotted);
+        printf("%d points plotted\n", points_plotted);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);

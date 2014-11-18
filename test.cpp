@@ -14,7 +14,7 @@ void find_surface_test(int64_t);
 void herp_test();
 
 int main(int argc, char **argv) {
-    multi_thread_benchmark(1000, 32);
+    multi_thread_benchmark(19, 100);
     //single_thread_benchmark(19);
     //find_surface_test(20);
     //herp_test();

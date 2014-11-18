@@ -8,7 +8,7 @@
 #include <math.h>
 //#include <boost/circular_buffer.hpp>
 
-#define EPSILON 0.5
+#define EPSILON 0.50
 /* Quadratic surfaces are also called quadrics, and there are 17 
  * standard-form types. A quadratic surface intersects every plane in a 
  * (proper or degenerate) conic section. In addition, the cone consisting 
@@ -55,11 +55,8 @@ double eval_ext(const quadric *q, const vector *v) {
  * v cannot be on the surface. Otherwise, it may be*/
 int is_surface(const quadric *q, const vector *v) {
     double val = eval_ext(q, v);
-    /* short circuit */
     if (val == 0.0)
         return 1;
-    uint64_t inside = (0x8000000000000000 & *(uint64_t *)&val) >> 63;
-    double (*eval_func)(const quadric *, const vector *) = eval_funcs[inside];
     vector tmp;
     int i = 1;
     uint64_t sign1, sign2;
@@ -67,13 +64,17 @@ int is_surface(const quadric *q, const vector *v) {
         tmp.x = v->x + EPSILON * (i & 0x1);
         tmp.y = v->y + EPSILON * ((i & 0x2) >> 1);
         tmp.z = v->z + EPSILON * ((i & 0x4) >> 2);
-        val = eval_func(q, &tmp);
-        sign1 = 0x8000000000000000 & *(uint64_t *)&val;
+        val = eval_ext(q, &tmp);
+        if (val == 0.0) 
+            return 0;
+        sign1 = val > 0.0;
         tmp.x = v->x - EPSILON * (i & 0x1);
         tmp.y = v->y - EPSILON * ((i & 0x2) >> 1);
         tmp.z = v->z - EPSILON * ((i & 0x4) >> 2);
-        val = eval_func(q, &tmp);
-        sign2 = 0x8000000000000000 & *(uint64_t *)&val;
+        val = eval_ext(q, &tmp);
+        sign2 = val > 0.0;
+        if (val == 0.0)
+            return 0;
         if(sign1 != sign2)
             return 1;
     }
@@ -90,7 +91,7 @@ subspace *subspace_init(uint64_t x_min, uint64_t y_min,
     s->y_max = y_max;
     s->z_max = z_max;
     size_t space_size = (x_max - x_min) * (y_max - y_min) * (z_max - z_min);
-    s->points = (point *)malloc(space_size * sizeof(point));
+    s->points = (point *)calloc(space_size, sizeof(point));
     size_t i;
     for (i = 0; i < space_size; i++) {
         // initialize x, y, and z
@@ -131,7 +132,6 @@ int find_surface(quadric *q, const vector *v, vector *surface) {
     *surface = *v;
     while(!is_surface(q, surface) && progress) {
         progress = 0;
-        printf("shortest: %lf\n", shortest_dist);
         for (i = 1; i <= 4; i <<=1) {
             tmp.x = surface ->x + (i & 0x1);
             tmp.y = surface ->y + ((i & 0x2) >> 1);
@@ -141,8 +141,6 @@ int find_surface(quadric *q, const vector *v, vector *surface) {
                 closest = tmp;
                 progress = 1;
             }
-            printf("dist: %lf\n", dist);
-
             tmp.x = surface->x - (i & 0x1);
             tmp.y = surface->y - ((i & 0x2) >> 1);
             tmp.z = surface->z - ((i & 0x4) >> 2);
@@ -151,13 +149,10 @@ int find_surface(quadric *q, const vector *v, vector *surface) {
                 closest = tmp;
                 progress = 1;
             }
-            printf("dist: %lf\n", dist);
-            
         }
         *surface = closest;
-        print_vector(surface);
     }
-    return is_surface(q, surface);
+    return progress;
 }
 
 /* precondition: v is surface point
@@ -201,23 +196,15 @@ void print_func(void *data) {
 }
 
 void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
-    //boost::circular_buffer<vector *> queue = 
-    //    boost::circular_buffer<vector *>(volume(s));
-    //
-    //list *queue = new_list();
-    //
     std::list<vector *> queue = std::list<vector *>();
     vector *tmp, *current = (vector *)malloc(sizeof(vector));
     current->x = v->x; current->y = v->y; current->z = v->z; 
 
     queue.push_back(current);
-    //push_back(queue, current);
-    //
     int i, j, k;
     while (!queue.empty()) {
         current = queue.front();
         queue.pop_front();
-        //current = (vector *)pop(queue);
         uint64_t index;
         if (current->x < s->x_min || current->x >= s->x_max ||
             current->y < s->y_min || current->y >= s->y_max ||
@@ -233,21 +220,6 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
         if (!(s->points[index].surface = is_surface(q, current)))
             goto cleanup;
 
-        //for (i = 1; i <= 4; i <<=1) {
-        //    tmp = (vector *)malloc(sizeof(vector));
-        //    tmp->x = current->x + (i & 0x1);
-        //    tmp->y = current->y + ((i & 0x2) >> 1);
-        //    tmp->z = current->z + ((i & 0x4) >> 2);
-        //    queue.push_back(tmp);
-        //    //push_back(queue, tmp);
-        //    tmp = (vector *)malloc(sizeof(vector));
-        //    tmp->x = current->x - (i & 0x1);
-        //    tmp->y = current->y - ((i & 0x2) >> 1);
-        //    tmp->z = current->z - ((i & 0x4) >> 2);
-        //    queue.push_back(tmp);
-        //    //push_back(queue, tmp);
-        //}
-        //
         for (i = -1; i <= 1; i++) {
             for (j = -1; j <= 1; j++) {
                 for (k = -1; k <= 1; k++) {
@@ -273,67 +245,6 @@ void print_subspace(const subspace *s) {
 }
 
 void print_vector(const vector *v) {
-    printf("{%lld, %lld, %lld}\n", v->x, v->y, v->z);
+    printf("{%lf, %lf, %lf}\n", v->x, v->y, v->z);
 }
 
-list *new_list() {
-    list *l = (list *)malloc(sizeof(list));
-    /* begin initially points to end and vice versa */
-    l->begin.next = &l->end;
-    l->end.prev = &l->begin;
-    return l;
-}
-
-void *pop(list *l) {
-    /* if list is empty */
-    if(l->begin.next == &l->end)
-        return NULL;
-    void *result = l->begin.next->data;
-    node *remove = l->begin.next;
-    l->begin.next = l->begin.next->next;
-    l->begin.next->prev = &l->begin;
-    free(remove);
-    return result;
-}
-
-void *peek(list *l) {
-    /* if list is empty */
-    if(l->begin.next == &l->end)
-        return NULL;
-    return l->begin.next->data;
-}
-
-void *push_back(list *l, void *data) {
-    node *last = (node *)malloc(sizeof(node));  
-    last->data = data;
-    last->prev = l->end.prev;
-    last->next = &l->end;
-    l->end.prev->next = last;
-    l->end.prev = last;
-}
-
-void list_destroy(list *l) {
-    if(!l)
-        return;
-    node *current = l->begin.next, *next;
-    while(current != &l->end) {
-        next = current->next;
-        free(current);
-        current = next;
-    }
-    free(l);
-}
-
-void print_list(list *l, void (*print_elem)(void *)) {
-    if(!l)
-        return;
-    node *current = l->begin.next;
-    while(current != &l->end) {
-        print_elem(current->data);
-        current = current->next;
-    }
-}
-
-int empty(list *l) {
-    return l->begin.next == &l->end;
-}

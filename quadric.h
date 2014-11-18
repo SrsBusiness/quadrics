@@ -31,7 +31,7 @@ typedef struct _quadric {
 } quadric;
 
 typedef struct _vector {
-    int64_t x, y, z;
+    double x, y, z;
 } vector;
 
 typedef struct _point {

@@ -10,14 +10,20 @@ void display_subspace(subspace *);
 
 void single_thread_benchmark(int64_t);
 void multi_thread_benchmark(int64_t, int);
-void list_test();
 void find_surface_test(int64_t);
+void herp_test();
 
 int main(int argc, char **argv) {
-    multi_thread_benchmark(19, 1);
+    multi_thread_benchmark(100, 32);
     //single_thread_benchmark(19);
-    //list_test();
     //find_surface_test(20);
+    //herp_test();
+}
+
+void herp_test() {
+    quadric q = {1, 1, 1, 0, 0, 0, 0, 0, 0, -19 * 19};
+    vector v = {-10, 16, 2};
+    is_surface(&q, &v);
 }
 
 void find_surface_test(int64_t radius) {
@@ -33,27 +39,6 @@ void find_surface_test(int64_t radius) {
 
 void print_elem(void *elem) {
     printf("%ld\n", (int64_t)elem);
-}
-
-void list_test() {
-    int i;
-    for (i = 0; i < 100; i++) {
-        list *l = new_list();
-        int64_t i;
-        for (i = 0; i < 20; i++) {
-            push_back(l, (void *)i);
-        }
-        for (i = 0; i < 15; i++) {
-            pop(l);
-        }
-        for (i = 0; i < 10; i++) {
-            pop(l);
-        }
-        for (i = 0; i < 5; i++) {
-            push_back(l, (void *)i);
-        }
-        list_destroy(l);
-    }
 }
 
 typedef struct _builder_args {
@@ -110,7 +95,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         }
         for (j = 0; j < num_threads; j++)
             pthread_join(threads[j], NULL);
-        display_subspace(s);
+        //display_subspace(s);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
@@ -134,7 +119,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         }
         for (j = 0; j < num_threads; j++)
             pthread_join(threads[j], NULL);
-        display_subspace(s);
+        //display_subspace(s);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);

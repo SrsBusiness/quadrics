@@ -76,8 +76,8 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
     subspace *s;
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (i = 0; i < trials; i++) {
-        s = subspace_init(-radius - 1, -radius - 1, 0, radius + 2,
-            radius + 2, 1);
+        s = subspace_init(-radius - 1, -radius - 1, -radius - 1, radius + 2,
+            radius + 2, radius + 2);
         uint64_t vol = volume(s);
         for (j = 0; j < num_threads; j++) {
             args[j].s = s;
@@ -103,8 +103,8 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (i = 0; i < trials; i++) {
-        s = subspace_init(-radius - 1, -radius - 1, 0, radius + 2,
-            radius + 2, 1);
+        s = subspace_init(-radius - 1, -radius - 1, -radius - 1, radius + 2,
+            radius + 2, radius + 2);
         uint64_t vol = volume(s);
         for (j = 0; j < num_threads; j++) {
             args[j].s = s;

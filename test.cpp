@@ -14,7 +14,7 @@ void find_surface_test(int64_t);
 void herp_test();
 
 int main(int argc, char **argv) {
-    multi_thread_benchmark(100, 32);
+    multi_thread_benchmark(19, 32);
     //single_thread_benchmark(19);
     //find_surface_test(20);
     //herp_test();
@@ -62,7 +62,7 @@ void *builder_thread(void *args) {
 }
 
 void multi_thread_benchmark(int64_t radius, int num_threads) {
-    quadric q = {1, 1, 1, 0, 0, 0, 0, 0, 0, -radius * radius};
+    quadric q = {1, -1, 0, 0, 0, 0, 0, 0, -1, 0};
     pthread_t *threads = 
         (pthread_t *)malloc(num_threads * sizeof(pthread_t));
     builder_args *args = 
@@ -88,7 +88,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         }
         for (j = 0; j < num_threads; j++)
             pthread_join(threads[j], NULL);
-        //display_subspace(s);
+        display_subspace(s);
         int points_plotted;
         sem_getvalue(&s->points_plotted, &points_plotted);
         printf("%d points plotted\n", points_plotted);
@@ -115,7 +115,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         }
         for (j = 0; j < num_threads; j++)
             pthread_join(threads[j], NULL);
-        //display_subspace(s);
+        display_subspace(s);
         int points_plotted;
         sem_getvalue(&s->points_plotted, &points_plotted);
         printf("%d points plotted\n", points_plotted);
@@ -172,11 +172,14 @@ void single_thread_benchmark(int64_t radius) {
 void display_subspace(subspace *s) {
     int64_t i, j, k;
     for (k = s->z_min; k < s->z_max; k++) {
+        clear_all();
         for (j = s->y_max - 1; j >= s->y_min; j--) {
             for (i = s->x_min; i < s->x_max; i++) {
                 printf("%d ", s->points[_index(s, i, j, k)].surface);
             }
             putchar('\n');
         }
+        putchar('\n');
+        sleep(1);
     }
 }

@@ -14,7 +14,7 @@ void find_surface_test(int64_t);
 void herp_test();
 
 int main(int argc, char **argv) {
-    multi_thread_benchmark(19, 100);
+    multi_thread_benchmark(1000, 32);
     //single_thread_benchmark(19);
     //find_surface_test(20);
     //herp_test();
@@ -44,7 +44,7 @@ void print_elem(void *elem) {
 typedef struct _builder_args {
     subspace *s;
     quadric *q;
-    uint64_t index;
+    int64_t index;
     void (*func)(subspace *, const quadric *, const vector *);
 } builder_args;
 
@@ -54,7 +54,10 @@ void *builder_thread(void *args) {
     v.x = _x(bargs->s, bargs->index);
     v.y = _y(bargs->s, bargs->index);
     v.z = _z(bargs->s, bargs->index);
-    assert(find_surface(bargs->q, &v, &surface));
+    if(!find_surface(bargs->q, &v, &surface)) {
+        print_vector(&surface);
+        exit(1);
+    }
     bargs->func(bargs->s, bargs->q, &surface); 
 }
 

@@ -202,6 +202,7 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
 
     queue.push_back(current);
     int i, j, k;
+    uint64_t surface_points = 0;
     while (!queue.empty()) {
         current = queue.front();
         queue.pop_front();
@@ -219,7 +220,9 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
         /* If point is not on surface, do not visit */
         if (!(s->points[index].surface = is_surface(q, current)))
             goto cleanup;
-
+        else {
+            surface_points++;
+        }
         for (i = -1; i <= 1; i++) {
             for (j = -1; j <= 1; j++) {
                 for (k = -1; k <= 1; k++) {
@@ -236,6 +239,7 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
         cleanup:
         free(current);
     }
+    printf("%llu points plotted\n", surface_points);
     return;
 }
 

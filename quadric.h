@@ -27,6 +27,10 @@
 
 #define touch(s) (sem_post(&(s)->points_plotted))
 
+#define volume(s) ((size_t)(((s)->x_max - (s)->x_min) * \
+        ((s)->y_max - (s)->y_min) * \
+        ((s)->z_max - (s)->z_min)))
+
 
 typedef struct _quadric {
     double a, b, c, d, e, f, g, h, i, j;
@@ -39,7 +43,7 @@ typedef struct _vector {
 typedef struct _point {
     int64_t x, y, z;
     sem_t sema;
-    int surface;
+    uint8_t plotted;
 } point;
 
 typedef struct _subspace {
@@ -47,6 +51,13 @@ typedef struct _subspace {
     sem_t points_plotted;
     point *points;
 } subspace;
+
+typedef struct _frozen_subspace {
+    int64_t x_min, y_min, z_min, x_max, y_max, z_max; 
+    /* Bit field for each point in the bounding volume. 1 if it is plotted,
+     * 0 otherwise */
+    uint8_t *points;
+} frozen_subspace;
 
 typedef struct _node {
     void *data;
@@ -62,7 +73,7 @@ typedef struct _list {
 subspace *subspace_init(int64_t, int64_t, int64_t, 
         int64_t, int64_t, int64_t);
 void subspace_free(subspace *);
-size_t volume(subspace *s);
+void frozen_subspace_free(frozen_subspace *);
 double eval_int(const quadric *, const vector *);
 double eval_ext(const quadric *, const vector *);
 int is_surface(const quadric *, const vector *);
@@ -78,7 +89,6 @@ void *push_back(list *, void *);
 void list_destroy(list *);
 void print_list(list *, void (*)(void *));
 int empty(list *);
-
 
 double eval_ext(const quadric *, const vector *);
 #endif

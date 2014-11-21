@@ -6,6 +6,10 @@
 #include <list>
 #include <float.h>
 #include <math.h>
+#include <assert.h>
+#include <errno.h>
+#include <error.h>
+#include <string.h>
 //#include <boost/circular_buffer.hpp>
 
 #define EPSILON 0.50
@@ -108,15 +112,14 @@ subspace *subspace_init(int64_t x_min, int64_t y_min,
     return s;
 }
 
-size_t volume(subspace *s) {
-    return (s->x_max - s->x_min) * 
-        (s->y_max - s->y_min) * 
-        (s->z_max - s->z_min);
-}
-
 void subspace_free(subspace *s) {
     free(s->points);
     free(s);
+}
+
+void frozen_subspace_free(frozen_subspace *f) {
+    free(f->points);
+    free(f);
 }
 
 /* Given a starting point v, traces a path until it arrives at a surface
@@ -171,9 +174,9 @@ void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
     if (sem_trywait(&s->points[index].sema) == -1 &&
             errno == EAGAIN)
         return;
-   
+
     /* if not a surface point */
-    if (!(s->points[index].surface = is_surface(q, v)))
+    if (!(s->points[index].plotted = is_surface(q, v)))
         return;
 
     touch(s);
@@ -210,17 +213,17 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
         queue.pop_front();
         uint64_t index;
         if (current->x < s->x_min || current->x >= s->x_max ||
-            current->y < s->y_min || current->y >= s->y_max ||
-            current->z < s->z_min || current->z >= s->z_max)
+                current->y < s->y_min || current->y >= s->y_max ||
+                current->z < s->z_min || current->z >= s->z_max)
             goto cleanup;
 
         index = _index(s, current->x, current->y, current->z);
         if(sem_trywait(&s->points[index].sema) == -1 &&
-            errno == EAGAIN)
+                errno == EAGAIN)
             goto cleanup;
 
         /* If point is not on surface, do not visit */
-        if (!(s->points[index].surface = is_surface(q, current)))
+        if (!(s->points[index].plotted = is_surface(q, current)))
             goto cleanup;
         else {
             touch(s); 
@@ -238,7 +241,7 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
                 }
             }
         }
-        cleanup:
+cleanup:
         free(current);
     }
     return;

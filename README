@@ -1,0 +1,8 @@
+quadrics
+========
+
+Library for calculating lattice points for arbitrary 3D quadric surfaces.
+
+Pass in a quadratic surface in the form: F(x, y, z) = ax^2 + by^2 + cz^2 + dyz + exz + fxy + gx + hy + iz + j = 0,
+as well as a bounding volume. You can either choose to calculate only the points on the surface, or to fill the
+interior/exterior of the surface.

@@ -58,7 +58,7 @@ double eval_ext(const quadric *q, const vector *v) {
 /* if eval() of all neighboring points are of all the same sign, then
  * v cannot be on the surface. Otherwise, it may be*/
 int is_surface(const quadric *q, const vector *v) {
-    double val = eval_ext(q, v);
+    double val = eval(q, v);
     if (val == 0.0)
         return 1;
     vector tmp;
@@ -68,14 +68,14 @@ int is_surface(const quadric *q, const vector *v) {
         tmp.x = v->x + EPSILON * (i & 0x1);
         tmp.y = v->y + EPSILON * ((i & 0x2) >> 1);
         tmp.z = v->z + EPSILON * ((i & 0x4) >> 2);
-        val = eval_ext(q, &tmp);
+        val = eval(q, &tmp);
         if (val == 0.0) 
             return 0;
         sign1 = val > 0.0;
         tmp.x = v->x - EPSILON * (i & 0x1);
         tmp.y = v->y - EPSILON * ((i & 0x2) >> 1);
         tmp.z = v->z - EPSILON * ((i & 0x4) >> 2);
-        val = eval_ext(q, &tmp);
+        val = eval(q, &tmp);
         sign2 = val > 0.0;
         if (val == 0.0)
             return 0;
@@ -140,7 +140,7 @@ int find_surface(quadric *q, const vector *v, vector *surface) {
             tmp.x = surface ->x + (i & 0x1);
             tmp.y = surface ->y + ((i & 0x2) >> 1);
             tmp.z = surface ->z + ((i & 0x4) >> 2);
-            if ((dist = fabs(eval_ext(q, &tmp))) < shortest_dist) {
+            if ((dist = fabs(eval(q, &tmp))) < shortest_dist) {
                 shortest_dist = dist;
                 closest = tmp;
                 progress = 1;
@@ -148,7 +148,7 @@ int find_surface(quadric *q, const vector *v, vector *surface) {
             tmp.x = surface->x - (i & 0x1);
             tmp.y = surface->y - ((i & 0x2) >> 1);
             tmp.z = surface->z - ((i & 0x4) >> 2);
-            if ((dist = fabs(eval_ext(q, &tmp))) < shortest_dist) {
+            if ((dist = fabs(eval(q, &tmp))) < shortest_dist) {
                 shortest_dist = dist;
                 closest = tmp;
                 progress = 1;
@@ -162,7 +162,7 @@ int find_surface(quadric *q, const vector *v, vector *surface) {
 /* precondition: v is surface point
  * Depth first trace of all surface points
  * */
-void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
+void depth_first_surface(subspace *s, const quadric *q, const vector *v) {
     /* if out of bounding volume */
     if (v->x < s->x_min || v->x >= s->x_max ||
             v->y < s->y_min || v->y >= s->y_max ||
@@ -190,6 +190,42 @@ void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
                 tmp.x = v->x + i;
                 tmp.y = v->y + j;
                 tmp.z = v->z + k;
+                depth_first_surface(s, q, &tmp);
+            }
+        }
+    }
+}
+
+void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
+    /* if out of bounding volume */
+    if (v->x < s->x_min || v->x >= s->x_max ||
+            v->y < s->y_min || v->y >= s->y_max ||
+            v->z < s->z_min || v->z >= s->z_max)
+        return;
+
+    uint64_t index = _index(s, v->x, v->y, v->z);
+    /* if already visited */
+    if (sem_trywait(&s->points[index].sema) == -1 &&
+            errno == EAGAIN)
+        return;
+
+    /* if not a surface point */
+    if (!is_surface(q, v) && eval(q, v) > 0)
+        return;
+
+    s->points[index].plotted = 1;
+
+    touch(s);
+    vector tmp;
+    int i, j, k;
+    for (i = -1; i <= 1; i++) {
+        for (j = -1; j <= 1; j++) {
+            for (k = -1; k <= 1; k++) {
+                if (!i && !j && !k)
+                    continue;
+                tmp.x = v->x + i;
+                tmp.y = v->y + j;
+                tmp.z = v->z + k;
                 depth_first_fill(s, q, &tmp);
             }
         }
@@ -198,6 +234,54 @@ void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
 
 void print_func(void *data) {
     printf("%p\n", data); 
+}
+
+void breadth_first_surface(subspace *s, const quadric *q, const vector *v) {
+    std::list<vector *> queue = std::list<vector *>();
+    vector *tmp, *current = (vector *)malloc(sizeof(vector));
+    current->x = v->x; current->y = v->y; current->z = v->z; 
+
+    queue.push_back(current);
+    int i, j, k;
+    uint64_t surface_points = 0;
+    while (!queue.empty()) {
+        current = queue.front();
+        queue.pop_front();
+        uint64_t index;
+        if (current->x < s->x_min || current->x >= s->x_max ||
+                current->y < s->y_min || current->y >= s->y_max ||
+                current->z < s->z_min || current->z >= s->z_max)
+            goto cleanup;
+
+        index = _index(s, current->x, current->y, current->z);
+
+        /* If point is not on surface, do not visit */
+        if(sem_trywait(&s->points[index].sema) == -1 &&
+                errno == EAGAIN)
+            goto cleanup;
+
+        if (!(s->points[index].plotted = is_surface(q, current)))
+            goto cleanup;
+
+        touch(s); 
+
+        for (i = -1; i <= 1; i++) {
+            for (j = -1; j <= 1; j++) {
+                for (k = -1; k <= 1; k++) {
+                    if (!i && !j && !k)
+                        continue;
+                    tmp = (vector *)malloc(sizeof(vector));
+                    tmp->x = current->x + i;
+                    tmp->y = current->y + j;
+                    tmp->z = current->z + k;
+                    queue.push_back(tmp);
+                }
+            }
+        }
+cleanup:
+        free(current);
+    }
+    return;
 }
 
 void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
@@ -218,16 +302,18 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
             goto cleanup;
 
         index = _index(s, current->x, current->y, current->z);
+        
+        /* If point is not on surface or the interior, do not visit */
+        if (!is_surface(q, current) && eval(q, current) > 0) {
+            goto cleanup;
+        }
+
         if(sem_trywait(&s->points[index].sema) == -1 &&
                 errno == EAGAIN)
             goto cleanup;
 
-        /* If point is not on surface, do not visit */
-        if (!(s->points[index].plotted = is_surface(q, current)))
-            goto cleanup;
-        else {
-            touch(s); 
-        }
+        s->points[index].plotted = 1;
+        touch(s); 
         for (i = -1; i <= 1; i++) {
             for (j = -1; j <= 1; j++) {
                 for (k = -1; k <= 1; k++) {

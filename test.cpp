@@ -19,9 +19,9 @@ void serialize_test(int64_t);
 int main(int argc, char **argv) {
     //multi_thread_benchmark(19, 32);
     //single_thread_benchmark(19);
-    //find_surface_test(20);
+    find_surface_test(18);
     //herp_test();
-    serialize_test(64);
+    //serialize_test(64);
 }
 
 void serialize_test(int64_t radius) {
@@ -30,7 +30,7 @@ void serialize_test(int64_t radius) {
     quadric q = {1, 1, 1, 0, 0, 0, 0, 0, 0, -radius * radius};
     vector surface, v = {0, 0, 0};
     find_surface(&q, &v, &surface);
-    breadth_first_fill(s, &q, &surface);
+    breadth_first_surface(s, &q, &surface);
     int points;
     sem_getvalue(&s->points_plotted, &points);
     size_t len = volume(s);
@@ -75,13 +75,13 @@ void herp_test() {
 }
 
 void find_surface_test(int64_t radius) {
-    subspace *s = subspace_init(-radius - 1, -radius - 1, 0, radius + 2,
-            radius + 2, 1);
-    quadric q = {1, 1, 0, 0, 0, 0, 0, 0, 0, -radius * radius};
+    subspace *s = subspace_init(-radius - 1, -radius - 1, -radius - 1, radius + 2,
+            radius + 2, radius + 2);
+    quadric q = {1, 1, 1, 0, 0, 0, 0, 0, 0, -radius * radius};
     vector v = {0, 0, 0};
     vector surface;
     assert(find_surface(&q, &v, &surface)); 
-    breadth_first_fill(s, &q, &surface);
+    depth_first_fill(s, &q, &surface);
     display_subspace(s);
 }
 
@@ -130,7 +130,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         for (j = 0; j < num_threads; j++) {
             args[j].s = s;
             args[j].q = &q;
-            args[j].func = breadth_first_fill;
+            args[j].func = breadth_first_surface;
             args[j].index = j * vol / num_threads;
             pthread_create(&threads[j], NULL, builder_thread, &args[j]);
         }
@@ -157,7 +157,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
         for (j = 0; j < num_threads; j++) {
             args[j].s = s;
             args[j].q = &q;
-            args[j].func = depth_first_fill;
+            args[j].func = depth_first_surface;
             args[j].index = j * vol / num_threads;
             pthread_create(&threads[j], NULL, builder_thread, &args[j]);
         }
@@ -191,7 +191,7 @@ void single_thread_benchmark(int64_t radius) {
     for (i = 0; i < trials; i++) {
         s = subspace_init(-radius - 1, -radius - 1, 0, radius + 2,
             radius + 2, 1);
-        breadth_first_fill(s, &q, &v);
+        breadth_first_surface(s, &q, &v);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
@@ -205,7 +205,7 @@ void single_thread_benchmark(int64_t radius) {
     for (i = 0; i < trials; i++) {
         s = subspace_init(-radius - 1, -radius - 1, 0, radius + 2,
             radius + 2, 1);
-        depth_first_fill(s, &q, &v);
+        depth_first_surface(s, &q, &v);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);

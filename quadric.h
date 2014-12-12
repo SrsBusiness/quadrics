@@ -18,6 +18,8 @@
     ((z) - (s)->z_min)\
 )
 
+#define frozen_point() ( )
+
 #define _x(s, index) ((index) / ((s)->y_max - (s)->y_min) / \
         ((s)->z_max - (s)->z_min) + (s)->x_min)
 #define _y(s, index) ((index) % (((s)->y_max - (s)->y_min) * \
@@ -80,6 +82,8 @@ int is_surface(const quadric *, const vector *);
 void print_vector(const vector *v);
 void print_subspace(const subspace *s);
 int find_surface(quadric *q, const vector *, vector *);
+void depth_first_surface(subspace *, const quadric *, const vector *);
+void breadth_first_surface(subspace *, const quadric *, const vector *);
 void depth_first_fill(subspace *, const quadric *, const vector *);
 void breadth_first_fill(subspace *, const quadric *, const vector *);
 list *new_list();

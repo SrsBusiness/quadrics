@@ -8,7 +8,9 @@
 #include <math.h>
 #include "serialize.h"
 
+
 void display_subspace(subspace *);
+void display_frozen_subspace(frozen_subspace *);
 
 void single_thread_benchmark(int64_t);
 void multi_thread_benchmark(int64_t, int);
@@ -82,7 +84,10 @@ void find_surface_test(int64_t radius) {
     vector surface;
     assert(find_surface(&q, &v, &surface)); 
     depth_first_fill(s, &q, &surface);
-    display_subspace(s);
+    subspace_serialize(s, "hello");
+    //frozen_subspace *f = freeze_subspace(s);
+    frozen_subspace *f = frozen_subspace_deserialize("hello", s->x_min, s->y_min, s->z_min);
+    display_frozen_subspace(f);
 }
 
 void print_elem(void *elem) {
@@ -224,6 +229,22 @@ void display_subspace(subspace *s) {
         for (j = s->y_max - 1; j >= s->y_min; j--) {
             for (i = s->x_min; i < s->x_max; i++) {
                 printf("%d ", s->points[_index(s, i, j, k)].plotted);
+            }
+            putchar('\n');
+        }
+        putchar('\n');
+        sleep(1);
+    }
+}
+
+void display_frozen_subspace(frozen_subspace *s) {
+    printf("%d\n", s->z_min);
+    int64_t i, j, k;
+    for (k = s->z_min; k < s->z_max; k++) {
+        clear_all();
+        for (j = s->y_max - 1; j >= s->y_min; j--) {
+            for (i = s->x_min; i < s->x_max; i++) {
+                printf("%d ", frozen_point(s, _index(s, i, j, k)));
             }
             putchar('\n');
         }

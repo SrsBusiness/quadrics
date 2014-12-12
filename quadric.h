@@ -18,7 +18,7 @@
     ((z) - (s)->z_min)\
 )
 
-#define frozen_point() ( )
+#define frozen_point(s, x) (((s)->points[x / 8] & 1 << (x % 8)) >> x % 8)
 
 #define _x(s, index) ((index) / ((s)->y_max - (s)->y_min) / \
         ((s)->z_max - (s)->z_min) + (s)->x_min)

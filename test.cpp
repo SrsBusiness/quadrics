@@ -32,7 +32,7 @@ void serialize_test(int64_t radius) {
     quadric q = {1, 1, 1, 0, 0, 0, 0, 0, 0, -radius * radius};
     vector surface, v = {0, 0, 0};
     find_surface(&q, &v, &surface);
-    breadth_first_surface(s, &q, &surface);
+    breadth_first_surface(s, &q, &surface, 1);
     int points;
     sem_getvalue(&s->points_plotted, &points);
     size_t len = volume(s);
@@ -83,7 +83,7 @@ void find_surface_test(int64_t radius) {
     vector v = {0, 0, 0};
     vector surface;
     assert(find_surface(&q, &v, &surface)); 
-    depth_first_fill(s, &q, &surface);
+    depth_first_fill(s, &q, &surface, 1);
     subspace_serialize(s, "hello");
     //frozen_subspace *f = freeze_subspace(s);
     frozen_subspace *f = frozen_subspace_deserialize("hello", s->x_min, s->y_min, s->z_min);
@@ -98,7 +98,8 @@ typedef struct _builder_args {
     subspace *s;
     quadric *q;
     int64_t index;
-    void (*func)(subspace *, const quadric *, const vector *);
+    int positive;
+    void (*func)(subspace *, const quadric *, const vector *, int);
 } builder_args;
 
 void *builder_thread(void *args) {
@@ -111,7 +112,7 @@ void *builder_thread(void *args) {
         print_vector(&surface);
         exit(1);
     }
-    bargs->func(bargs->s, bargs->q, &surface); 
+    bargs->func(bargs->s, bargs->q, &surface, bargs->positive); 
 }
 
 void multi_thread_benchmark(int64_t radius, int num_threads) {
@@ -137,6 +138,7 @@ void multi_thread_benchmark(int64_t radius, int num_threads) {
             args[j].q = &q;
             args[j].func = breadth_first_surface;
             args[j].index = j * vol / num_threads;
+            args[j].positive = 1;
             pthread_create(&threads[j], NULL, builder_thread, &args[j]);
         }
         for (j = 0; j < num_threads; j++)
@@ -196,7 +198,7 @@ void single_thread_benchmark(int64_t radius) {
     for (i = 0; i < trials; i++) {
         s = subspace_init(-radius - 1, -radius - 1, 0, radius + 2,
             radius + 2, 1);
-        breadth_first_surface(s, &q, &v);
+        breadth_first_surface(s, &q, &v, 1);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
@@ -210,7 +212,7 @@ void single_thread_benchmark(int64_t radius) {
     for (i = 0; i < trials; i++) {
         s = subspace_init(-radius - 1, -radius - 1, 0, radius + 2,
             radius + 2, 1);
-        depth_first_surface(s, &q, &v);
+        depth_first_surface(s, &q, &v, 1);
         subspace_free(s);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);

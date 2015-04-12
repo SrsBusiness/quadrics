@@ -162,7 +162,7 @@ int find_surface(quadric *q, const vector *v, vector *surface) {
 /* precondition: v is surface point
  * Depth first trace of all surface points
  * */
-void depth_first_surface(subspace *s, const quadric *q, const vector *v) {
+void depth_first_surface(subspace *s, const quadric *q, const vector *v, int positive) {
     /* if out of bounding volume */
     if (v->x < s->x_min || v->x >= s->x_max ||
             v->y < s->y_min || v->y >= s->y_max ||
@@ -176,9 +176,9 @@ void depth_first_surface(subspace *s, const quadric *q, const vector *v) {
         return;
 
     /* if not a surface point */
-    if (!(s->points[index].plotted = is_surface(q, v)))
+    if (!is_surface(q, v))
         return;
-
+    s->points[index].plotted = positive;
     touch(s);
     vector tmp;
     int i, j, k;
@@ -190,13 +190,13 @@ void depth_first_surface(subspace *s, const quadric *q, const vector *v) {
                 tmp.x = v->x + i;
                 tmp.y = v->y + j;
                 tmp.z = v->z + k;
-                depth_first_surface(s, q, &tmp);
+                depth_first_surface(s, q, &tmp, positive);
             }
         }
     }
 }
 
-void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
+void depth_first_fill(subspace *s, const quadric *q, const vector *v, int positive) {
     /* if out of bounding volume */
     if (v->x < s->x_min || v->x >= s->x_max ||
             v->y < s->y_min || v->y >= s->y_max ||
@@ -213,7 +213,7 @@ void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
     if (!is_surface(q, v) && eval(q, v) > 0)
         return;
 
-    s->points[index].plotted = 1;
+    s->points[index].plotted = positive;
 
     touch(s);
     vector tmp;
@@ -226,7 +226,7 @@ void depth_first_fill(subspace *s, const quadric *q, const vector *v) {
                 tmp.x = v->x + i;
                 tmp.y = v->y + j;
                 tmp.z = v->z + k;
-                depth_first_fill(s, q, &tmp);
+                depth_first_fill(s, q, &tmp, positive);
             }
         }
     }
@@ -236,7 +236,7 @@ void print_func(void *data) {
     printf("%p\n", data); 
 }
 
-void breadth_first_surface(subspace *s, const quadric *q, const vector *v) {
+void breadth_first_surface(subspace *s, const quadric *q, const vector *v, int positive) {
     std::list<vector *> queue = std::list<vector *>();
     vector *tmp, *current = (vector *)malloc(sizeof(vector));
     current->x = v->x; current->y = v->y; current->z = v->z; 
@@ -260,9 +260,10 @@ void breadth_first_surface(subspace *s, const quadric *q, const vector *v) {
                 errno == EAGAIN)
             goto cleanup;
 
-        if (!(s->points[index].plotted = is_surface(q, current)))
+        if (!is_surface(q, current))
             goto cleanup;
 
+        s->points[index].plotted = positive;
         touch(s); 
 
         for (i = -1; i <= 1; i++) {
@@ -284,7 +285,7 @@ cleanup:
     return;
 }
 
-void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
+void breadth_first_fill(subspace *s, const quadric *q, const vector *v, int positive) {
     std::list<vector *> queue = std::list<vector *>();
     vector *tmp, *current = (vector *)malloc(sizeof(vector));
     current->x = v->x; current->y = v->y; current->z = v->z; 
@@ -312,7 +313,7 @@ void breadth_first_fill(subspace *s, const quadric *q, const vector *v) {
                 errno == EAGAIN)
             goto cleanup;
 
-        s->points[index].plotted = 1;
+        s->points[index].plotted = positive;
         touch(s); 
         for (i = -1; i <= 1; i++) {
             for (j = -1; j <= 1; j++) {
